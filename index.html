@@ -1,0 +1,739 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Withdrawal PDF 套印工具</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172b4d;
+      --muted: #62728a;
+      --line: #dce4ef;
+      --blue: #2457d6;
+      --blue-dark: #1944b0;
+      --surface: #fff;
+      --canvas: #edf2f8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #f5f7fb;
+      color: var(--ink);
+      font-family: "Segoe UI", "Microsoft JhengHei", sans-serif;
+    }
+    header {
+      padding: 24px clamp(18px, 4vw, 52px);
+      color: #fff;
+      background: linear-gradient(115deg, #173b8e, #2865dc);
+    }
+    header h1 { margin: 0; font-size: 22px; letter-spacing: .02em; }
+    header p { margin: 7px 0 0; color: #dbe7ff; font-size: 14px; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(290px, 350px) minmax(0, 1fr);
+      gap: 20px;
+      max-width: 1440px;
+      padding: 22px;
+      margin: auto;
+      align-items: start;
+    }
+    .panel, .preview-panel {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 6px 24px #233c6410;
+    }
+    .panel { padding: 20px; }
+    .panel h2, .preview-head h2 { margin: 0; font-size: 16px; }
+    .section { margin-top: 21px; }
+    .section-title {
+      margin: 0 0 10px;
+      color: #344967;
+      font-size: 13px;
+      font-weight: 700;
+    }
+    label { display: block; margin: 0 0 6px; color: #4a5d78; font-size: 12px; font-weight: 650; }
+    input[type="text"], input[type="number"], input[type="file"] {
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 10px;
+      color: var(--ink);
+      background: #fff;
+      border: 1px solid #cbd6e5;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+    }
+    input[type="file"] { padding: 7px; }
+    input:focus { outline: 3px solid #2457d626; border-color: var(--blue); }
+    .hint { margin: 6px 0 0; color: var(--muted); font-size: 11px; line-height: 1.55; }
+    .field-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; margin-top: 12px; }
+    .field-row .value { min-width: 0; }
+    .coordinate-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-top: 7px; }
+    .coordinate-control { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px; }
+    .coordinate-control label { margin: 0; color: var(--muted); font-size: 10px; font-weight: 600; }
+    .coordinate-control input[type="number"] { min-width: 0; min-height: 28px; padding: 4px 5px; font-size: 11px; }
+    .date-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .date-part label { margin-bottom: 5px; }
+    .date-part input { min-width: 0; }
+    .date-part .pick-button { width: 100%; margin-top: 6px; padding-right: 4px; padding-left: 4px; font-size: 11px; }
+    .date-part .coordinate-row { grid-template-columns: 1fr; }
+    .pick-button, .action-button, .pager button {
+      min-height: 38px;
+      padding: 8px 12px;
+      border: 1px solid #cbd6e5;
+      border-radius: 8px;
+      background: #fff;
+      color: #304663;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .pick-button:hover, .pager button:hover { border-color: var(--blue); color: var(--blue); }
+    .pick-button.active { background: #eaf0ff; color: var(--blue); border-color: var(--blue); }
+    .grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .primary {
+      width: 100%;
+      margin-top: 18px;
+      min-height: 44px;
+      color: #fff;
+      background: var(--blue);
+      border: 0;
+      border-radius: 9px;
+      font: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .primary:hover { background: var(--blue-dark); }
+    .primary:disabled { cursor: not-allowed; opacity: .48; }
+    .secondary-action { width: 100%; margin-top: 8px; }
+    .status { min-height: 20px; margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+    .status.error { color: #b42318; }
+    .preview-panel { min-width: 0; overflow: hidden; }
+    .preview-head {
+      display: flex;
+      min-height: 58px;
+      padding: 12px 16px;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+    .pager { display: flex; align-items: center; gap: 9px; color: var(--muted); font-size: 12px; }
+    .pager button { min-height: 32px; padding: 5px 10px; }
+    .pager button:disabled { opacity: .4; cursor: default; }
+    .canvas-wrap {
+      min-height: 72vh;
+      max-height: calc(100vh - 175px);
+      overflow: auto;
+      padding: 22px;
+      background: var(--canvas);
+      text-align: center;
+    }
+    .paper {
+      position: relative;
+      display: inline-block;
+      max-width: 100%;
+      background: #fff;
+      box-shadow: 0 3px 14px #13294b24;
+      line-height: 0;
+    }
+    #pdf-canvas { display: block; max-width: 100%; height: auto; }
+    #overlay-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+    .overlay-text {
+      position: absolute;
+      color: #161616;
+      white-space: nowrap;
+      line-height: 1.2;
+      transform: translateY(-78%);
+      font-family: "Microsoft YaHei Light", "Microsoft JhengHei", sans-serif;
+    }
+    .placement-marker {
+      position: absolute;
+      z-index: 1;
+      width: 12px;
+      height: 12px;
+      border: 2px solid #fff;
+      border-radius: 50%;
+      box-shadow: 0 1px 5px #0007;
+      transform: translate(-2px, -2px);
+      pointer-events: none;
+    }
+    .placement-marker.branch { background: #e34d59; }
+    .placement-marker.year { background: #18875b; }
+    .placement-marker.month { background: #6b56c5; }
+    .placement-marker.day { background: #d1841c; }
+    .empty-state { max-width: 430px; margin: 16vh auto 0; color: #718198; font-size: 14px; line-height: 1.8; }
+    @media (max-width: 850px) {
+      main { grid-template-columns: 1fr; padding: 14px; }
+      .canvas-wrap { min-height: 55vh; max-height: 70vh; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Withdrawal PDF 套印工具</h1>
+    <p>在預覽上點選欄位位置，將分行別與民國日期寫入 PDF。</p>
+  </header>
+  <main>
+    <aside class="panel">
+      <h2>套印設定</h2>
+      <section class="section">
+        <p class="section-title">1. 選擇原始 PDF</p>
+        <input id="pdf-file" type="file" accept="application/pdf,.pdf">
+        <p class="hint">原始檔不會被修改，完成後會另存為套印版 PDF。</p>
+      </section>
+      <section class="section">
+        <p class="section-title">2. 匯入 JSON 套印設定</p>
+        <input id="json-file" type="file" accept="application/json,.json">
+        <p class="hint">匯入先前下載的設定，套用套印文字、PDF 座標與字型樣式。</p>
+      </section>
+      <section class="section">
+        <p class="section-title">3. 指定字型（自動）</p>
+        <p id="font-name" class="hint">自動使用同目錄的 msyhl.ttc（Microsoft YaHei Light）。</p>
+        <button id="choose-font" class="pick-button" type="button" hidden>手動選取 msyhl.ttc</button>
+        <input id="font-file" type="file" accept=".ttc" hidden>
+      </section>
+      <section class="section">
+        <p class="section-title">4. 輸入套印內容</p>
+        <div class="field-row">
+          <div class="value">
+            <label for="branch-text">分行名稱（表單已有「分行」）</label>
+            <input id="branch-text" type="text" value="信義">
+          </div>
+          <button class="pick-button" id="pick-branch" type="button">點選位置</button>
+        </div>
+        <div class="coordinate-row" aria-label="分行名稱座標，PDF 點數">
+          <div class="coordinate-control"><label for="coord-branch-x">X</label><input id="coord-branch-x" type="number" step="0.1" disabled></div>
+          <div class="coordinate-control"><label for="coord-branch-y">Y</label><input id="coord-branch-y" type="number" step="0.1" disabled></div>
+        </div>
+        <div class="section" style="margin-top:14px">
+          <p class="section-title">日期（表單已有「民國／年／月／日」）</p>
+          <div class="date-grid">
+            <div class="date-part">
+              <label for="date-year">年</label>
+              <input id="date-year" type="text" inputmode="numeric" value="115">
+              <button class="pick-button" id="pick-year" type="button">定位年</button>
+              <div class="coordinate-row" aria-label="年欄位座標，PDF 點數">
+                <div class="coordinate-control"><label for="coord-year-x">X</label><input id="coord-year-x" type="number" step="0.1" disabled></div>
+                <div class="coordinate-control"><label for="coord-year-y">Y</label><input id="coord-year-y" type="number" step="0.1" disabled></div>
+              </div>
+            </div>
+            <div class="date-part">
+              <label for="date-month">月</label>
+              <input id="date-month" type="text" inputmode="numeric" value="11">
+              <button class="pick-button" id="pick-month" type="button">定位月</button>
+              <div class="coordinate-row" aria-label="月欄位座標，PDF 點數">
+                <div class="coordinate-control"><label for="coord-month-x">X</label><input id="coord-month-x" type="number" step="0.1" disabled></div>
+                <div class="coordinate-control"><label for="coord-month-y">Y</label><input id="coord-month-y" type="number" step="0.1" disabled></div>
+              </div>
+            </div>
+            <div class="date-part">
+              <label for="date-day">日</label>
+              <input id="date-day" type="text" inputmode="numeric" value="20">
+              <button class="pick-button" id="pick-day" type="button">定位日</button>
+              <div class="coordinate-row" aria-label="日欄位座標，PDF 點數">
+                <div class="coordinate-control"><label for="coord-day-x">X</label><input id="coord-day-x" type="number" step="0.1" disabled></div>
+                <div class="coordinate-control"><label for="coord-day-y">Y</label><input id="coord-day-y" type="number" step="0.1" disabled></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section class="section">
+        <p class="section-title">5. 字型大小與輸出</p>
+        <div class="grid-two">
+          <div>
+            <label for="font-size">字型大小（pt）</label>
+            <input id="font-size" type="number" min="6" max="48" step="0.5" value="9">
+          </div>
+          <div>
+            <label for="font-color">字色</label>
+            <input id="font-color" type="color" value="#111111" style="width:100%;height:40px;padding:4px;border:1px solid #cbd6e5;border-radius:8px;background:#fff">
+          </div>
+        </div>
+        <button id="download" class="primary" type="button" disabled>套印並下載 PDF</button>
+        <button id="download-json" class="action-button secondary-action" type="button">下載 JSON 設定</button>
+        <p id="status" class="status" role="status">請先選取原始 PDF。</p>
+      </section>
+    </aside>
+
+    <section class="preview-panel" aria-label="PDF 預覽">
+      <div class="preview-head">
+        <h2>文件預覽</h2>
+        <div class="pager">
+          <button id="previous-page" type="button" disabled>上一頁</button>
+          <span id="page-label">尚未載入 PDF</span>
+          <button id="next-page" type="button" disabled>下一頁</button>
+        </div>
+      </div>
+      <div id="canvas-wrap" class="canvas-wrap">
+        <div id="empty-state" class="empty-state">選取 Withdrawal.pdf 後，文件會顯示在這裡。<br>定位時請點選欲套印文字的左下方基準位置。</div>
+        <div id="paper" class="paper" hidden>
+          <canvas id="pdf-canvas"></canvas>
+          <div id="overlay-layer"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="libs/pdf.min.js"></script>
+  <script src="libs/pdf-lib.min.js"></script>
+  <script src="libs/fontkit.umd.min.js"></script>
+  <script>
+    (() => {
+      const $ = (id) => document.getElementById(id);
+      const pdfInput = $('pdf-file');
+      const jsonInput = $('json-file');
+      const fontInput = $('font-file');
+      const canvas = $('pdf-canvas');
+      const context = canvas.getContext('2d');
+      const paper = $('paper');
+      const overlay = $('overlay-layer');
+      const status = $('status');
+      const PDF_TO_CSS = 96 / 72;
+      const fields = [
+        { key: 'branch', inputId: 'branch-text', label: '分行名稱' },
+        { key: 'year', inputId: 'date-year', label: '民國年' },
+        { key: 'month', inputId: 'date-month', label: '月份' },
+        { key: 'day', inputId: 'date-day', label: '日期' },
+      ];
+      const positions = Object.fromEntries(fields.map(field => [field.key, null]));
+      let pdfBytes = null;
+      let fontBytes = null;
+      let embeddedFontSource = null;
+      let pdfDocument = null;
+      let currentPage = 1;
+      let viewport = null;
+      let picking = null;
+      let renderTask = null;
+      let importedConfig = false;
+
+      if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'libs/pdf.worker.min.js';
+      }
+
+      function setStatus(message, isError = false) {
+        status.textContent = message;
+        status.classList.toggle('error', isError);
+      }
+
+      function refreshDownloadState() {
+        $('download').disabled = !(pdfBytes && fontBytes && fields.every(field => positions[field.key]));
+      }
+
+      function syncCoordinateInputs(key) {
+        const position = positions[key];
+        for (const axis of ['x', 'y']) {
+          const input = $(`coord-${key}-${axis}`);
+          input.disabled = !position;
+          input.value = position ? String(Number(position[axis].toFixed(2))) : '';
+        }
+      }
+
+      function parseFont(bytes) {
+        const parsedFont = fontkit.create(bytes);
+        if (typeof parsedFont.hasGlyphForCodePoint !== 'function') {
+          throw new Error('msyhl.ttc 中未找到可用的字型。');
+        }
+        return parsedFont;
+      }
+
+      function useFontCollection(collectionBytes) {
+        fontBytes = extractCollectionFace(collectionBytes, 0);
+        embeddedFontSource = parseFont(fontBytes);
+        validateFontCharacters(embeddedFontSource);
+        $('font-name').textContent = `已載入：msyhl.ttc（${embeddedFontSource.familyName}）`;
+        $('font-name').style.color = '#18875b';
+        $('choose-font').hidden = true;
+        setStatus('指定字型已載入。');
+        refreshDownloadState();
+      }
+
+      function extractCollectionFace(collectionBytes, faceIndex = 0) {
+        const source = collectionBytes;
+        const view = new DataView(source.buffer, source.byteOffset, source.byteLength);
+        const signature = String.fromCharCode(...source.subarray(0, 4));
+        if (signature !== 'ttcf') throw new Error('指定檔案不是 TrueType 字型集合（TTC）。');
+        const faceCount = view.getUint32(8, false);
+        if (faceIndex >= faceCount) throw new Error(`TTC 字型集合只有 ${faceCount} 個字型。`);
+
+        const faceOffset = view.getUint32(12 + faceIndex * 4, false);
+        const tableCount = view.getUint16(faceOffset + 4, false);
+        const tables = [];
+        let outputOffset = (12 + tableCount * 16 + 3) & ~3;
+        for (let index = 0; index < tableCount; index++) {
+          const entryOffset = faceOffset + 12 + index * 16;
+          const tag = String.fromCharCode(...source.subarray(entryOffset, entryOffset + 4));
+          const tableOffset = view.getUint32(entryOffset + 8, false);
+          const length = view.getUint32(entryOffset + 12, false);
+          if (tableOffset + length > source.length) throw new Error(`字型資料表 ${tag} 超出檔案範圍。`);
+          tables.push({ entryOffset, tag, tableOffset, length, outputOffset });
+          outputOffset = (outputOffset + length + 3) & ~3;
+        }
+
+        const headTable = tables.find(table => table.tag === 'head');
+        if (!headTable) throw new Error('TTC 字型缺少 head 資料表。');
+        const output = new Uint8Array(outputOffset);
+        const outputView = new DataView(output.buffer);
+        output.set(source.subarray(faceOffset, faceOffset + 12), 0);
+        for (const table of tables) {
+          const outputEntry = 12 + table.entryOffset - (faceOffset + 12);
+          output.set(source.subarray(table.entryOffset, table.entryOffset + 8), outputEntry);
+          outputView.setUint32(outputEntry + 8, table.outputOffset, false);
+          outputView.setUint32(outputEntry + 12, table.length, false);
+          output.set(source.subarray(table.tableOffset, table.tableOffset + table.length), table.outputOffset);
+        }
+
+        outputView.setUint32(headTable.outputOffset + 8, 0, false);
+        let checksum = 0;
+        for (let index = 0; index < output.length; index += 4) {
+          const word = ((output[index] || 0) << 24) | ((output[index + 1] || 0) << 16) |
+            ((output[index + 2] || 0) << 8) | (output[index + 3] || 0);
+          checksum = (checksum + (word >>> 0)) >>> 0;
+        }
+        outputView.setUint32(headTable.outputOffset + 8, (0xB1B0AFBA - checksum) >>> 0, false);
+        return output;
+      }
+
+      async function loadLocalFont() {
+        try {
+          const response = await fetch('./msyhl.ttc');
+          if (!response.ok) throw new Error(`無法讀取同目錄的 msyhl.ttc（HTTP ${response.status}）。`);
+          const collectionBytes = new Uint8Array(await response.arrayBuffer());
+          useFontCollection(collectionBytes);
+        } catch (error) {
+          fontBytes = null;
+          embeddedFontSource = null;
+          $('choose-font').hidden = false;
+          const localFileNotice = location.protocol === 'file:'
+            ? '直接開啟 HTML 時，瀏覽器會限制網頁讀取同目錄檔案；請改用 VS Code Live Server，或手動選取字型。'
+            : '請確認網頁伺服器可讀取同目錄的 msyhl.ttc，或手動選取字型。';
+          $('font-name').textContent = `自動載入失敗：${error.message} ${localFileNotice}`;
+          $('font-name').style.color = '#b42318';
+          setStatus(`字型自動載入失敗。${localFileNotice}`, true);
+        }
+        refreshDownloadState();
+      }
+
+      $('choose-font').addEventListener('click', () => fontInput.click());
+      fontInput.addEventListener('change', async () => {
+        const file = fontInput.files && fontInput.files[0];
+        if (!file) return;
+        try {
+          useFontCollection(new Uint8Array(await file.arrayBuffer()));
+        } catch (error) {
+          fontBytes = null;
+          embeddedFontSource = null;
+          $('font-name').textContent = `字型載入失敗：${error.message}`;
+          $('font-name').style.color = '#b42318';
+          setStatus(`字型載入失敗：${error.message}`, true);
+        } finally {
+          fontInput.value = '';
+          refreshDownloadState();
+        }
+      });
+
+      function validateFontCharacters(parsedFont) {
+        const text = fields.map(field => $(field.inputId).value).join('');
+        const missing = [...new Set([...text].filter(char => !parsedFont.hasGlyphForCodePoint(char.codePointAt(0))))];
+        if (missing.length) {
+          throw new Error(`所選字型缺少字元：${missing.join('、')}。請改用支援繁體中文的字型。`);
+        }
+      }
+
+      function updateMarkers() {
+        overlay.replaceChildren();
+        for (const field of fields) {
+          const position = positions[field.key];
+          if (!position || position.page !== currentPage || !viewport) continue;
+          const [viewX, viewY] = viewport.convertToViewportPoint(position.x, position.y);
+          const scaleX = canvas.clientWidth / viewport.width;
+          const scaleY = canvas.clientHeight / viewport.height;
+          const text = $(field.inputId).value;
+          const fontSize = Number($('font-size').value) || 12;
+          const marker = document.createElement('span');
+          marker.className = `placement-marker ${field.key}`;
+          marker.style.left = `${viewX * scaleX}px`;
+          marker.style.top = `${viewY * scaleY}px`;
+          overlay.append(marker);
+          const previewText = document.createElement('span');
+          previewText.className = 'overlay-text';
+          previewText.textContent = text;
+          previewText.style.left = `${viewX * scaleX}px`;
+          previewText.style.top = `${viewY * scaleY}px`;
+          previewText.style.fontSize = `${fontSize * viewport.scale * PDF_TO_CSS * scaleY}px`;
+          previewText.style.color = $('font-color').value;
+          overlay.append(previewText);
+        }
+      }
+
+      async function renderPage(pageNumber) {
+        if (!pdfDocument) return;
+        if (renderTask) {
+          renderTask.cancel();
+          renderTask = null;
+        }
+        currentPage = pageNumber;
+        const page = await pdfDocument.getPage(currentPage);
+        const availableWidth = Math.max(280, $('canvas-wrap').clientWidth - 48);
+        const baseViewport = page.getViewport({ scale: 1 });
+        const scale = Math.min(1.6, availableWidth / baseViewport.width);
+        viewport = page.getViewport({ scale });
+        const outputScale = window.devicePixelRatio || 1;
+        canvas.width = Math.floor(viewport.width * outputScale);
+        canvas.height = Math.floor(viewport.height * outputScale);
+        canvas.style.width = `${viewport.width}px`;
+        canvas.style.height = `${viewport.height}px`;
+        paper.style.width = `${viewport.width}px`;
+        paper.style.height = `${viewport.height}px`;
+        overlay.style.width = `${viewport.width}px`;
+        overlay.style.height = `${viewport.height}px`;
+        renderTask = page.render({ canvasContext: context, viewport, transform: outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null });
+        try {
+          await renderTask.promise;
+        } catch (error) {
+          if (error.name !== 'RenderingCancelledException') throw error;
+        }
+        $('page-label').textContent = `第 ${currentPage} / ${pdfDocument.numPages} 頁`;
+        $('previous-page').disabled = currentPage <= 1;
+        $('next-page').disabled = currentPage >= pdfDocument.numPages;
+        updateMarkers();
+      }
+
+      pdfInput.addEventListener('change', async () => {
+        const file = pdfInput.files && pdfInput.files[0];
+        if (!file) return;
+        try {
+          pdfBytes = new Uint8Array(await file.arrayBuffer());
+          pdfDocument = await pdfjsLib.getDocument({ data: pdfBytes.slice() }).promise;
+          if (!importedConfig) {
+            for (const field of fields) {
+              positions[field.key] = null;
+              syncCoordinateInputs(field.key);
+            }
+          } else {
+            for (const field of fields) {
+              const position = positions[field.key];
+              if (position && position.page > pdfDocument.numPages) {
+                positions[field.key] = null;
+                syncCoordinateInputs(field.key);
+              }
+            }
+          }
+          $('empty-state').hidden = true;
+          paper.hidden = false;
+          const firstPosition = fields.map(field => positions[field.key]).find(Boolean);
+          await renderPage(firstPosition?.page ?? 1);
+          setStatus(`已載入 ${file.name}（${pdfDocument.numPages} 頁）。${importedConfig ? '已套用匯入的 JSON 設定。' : '請依序定位分行名稱與日期的四個空格。'}`);
+        } catch (error) {
+          pdfBytes = null;
+          setStatus(`PDF 載入失敗：${error.message}`, true);
+        }
+        refreshDownloadState();
+      });
+
+      jsonInput.addEventListener('change', async () => {
+        const file = jsonInput.files && jsonInput.files[0];
+        if (!file) return;
+        try {
+          const config = JSON.parse(await file.text());
+          if (!config || typeof config !== 'object' || Array.isArray(config)) {
+            throw new Error('JSON 根節點必須是物件。');
+          }
+          if (config.formatVersion !== 1) throw new Error('不支援此 JSON 設定版本（需要 formatVersion 1）。');
+          if (!config.values || !config.values.date || !config.style || !config.positions) {
+            throw new Error('設定缺少 values、values.date、style 或 positions 資料。');
+          }
+
+          const values = config.values;
+          const date = values.date;
+          const importedPositions = {};
+          for (const field of fields) {
+            const position = config.positions[field.key];
+            if (position == null) {
+              importedPositions[field.key] = null;
+              continue;
+            }
+            if (!Number.isInteger(position.page) || position.page < 1 ||
+                !Number.isFinite(position.x) || !Number.isFinite(position.y)) {
+              throw new Error(`「${field.label}」座標格式錯誤，需包含有效的 page、x、y。`);
+            }
+            if (pdfDocument && position.page > pdfDocument.numPages) {
+              throw new Error(`「${field.label}」指定第 ${position.page} 頁，但目前 PDF 只有 ${pdfDocument.numPages} 頁。`);
+            }
+            importedPositions[field.key] = { page: position.page, x: position.x, y: position.y };
+          }
+          const color = config.style.color ?? '#111111';
+          if (typeof color !== 'string' || !/^#[\da-f]{6}$/i.test(color)) {
+            throw new Error('字色格式錯誤，需使用 #RRGGBB 格式。');
+          }
+          const fontSize = Number(config.style.fontSizePt ?? 9);
+          if (!Number.isFinite(fontSize)) throw new Error('字型大小必須是有效數字。');
+
+          $('branch-text').value = values.branch == null ? '' : String(values.branch);
+          $('date-year').value = date.year == null ? '' : String(date.year);
+          $('date-month').value = date.month == null ? '' : String(date.month);
+          $('date-day').value = date.day == null ? '' : String(date.day);
+          $('font-size').value = String(Math.min(48, Math.max(6, fontSize)));
+          $('font-color').value = color;
+          for (const field of fields) {
+            positions[field.key] = importedPositions[field.key];
+            syncCoordinateInputs(field.key);
+          }
+          importedConfig = true;
+          if (pdfDocument) {
+            const firstPosition = fields.map(field => positions[field.key]).find(Boolean);
+            await renderPage(firstPosition?.page ?? currentPage);
+          }
+          updateMarkers();
+          refreshDownloadState();
+          setStatus(`已匯入 ${file.name}，套印內容、座標與樣式已更新${pdfDocument ? '，預覽已同步。' : '；選取原始 PDF 後即可預覽。'}`);
+        } catch (error) {
+          setStatus(`JSON 匯入失敗：${error.message}`, true);
+        } finally {
+          jsonInput.value = '';
+        }
+      });
+
+      loadLocalFont();
+
+      for (const field of fields) {
+        $(`pick-${field.key}`).addEventListener('click', () => {
+          if (!pdfDocument) {
+            setStatus('請先選取原始 PDF。', true);
+            return;
+          }
+          picking = field.key;
+          document.querySelectorAll('.pick-button').forEach(button => button.classList.remove('active'));
+          $(`pick-${field.key}`).classList.add('active');
+          setStatus(`請在第 ${currentPage} 頁的「${field.label}」空格內，點選底線上的文字起始位置。`);
+          canvas.style.cursor = 'crosshair';
+        });
+      }
+
+      canvas.addEventListener('click', (event) => {
+        if (!picking || !viewport) return;
+        const rect = canvas.getBoundingClientRect();
+        const viewX = (event.clientX - rect.left) * viewport.width / rect.width;
+        const viewY = (event.clientY - rect.top) * viewport.height / rect.height;
+        const [x, y] = viewport.convertToPdfPoint(viewX, viewY);
+        positions[picking] = { page: currentPage, x, y };
+        syncCoordinateInputs(picking);
+        const fieldName = fields.find(field => field.key === picking).label;
+        $(`pick-${picking}`).classList.remove('active');
+        picking = null;
+        canvas.style.cursor = '';
+        updateMarkers();
+        refreshDownloadState();
+        setStatus(`${fieldName}位置已設定；若需調整，重新按該欄位的定位按鈕即可。`);
+      });
+
+      $('previous-page').addEventListener('click', () => renderPage(currentPage - 1).catch(error => setStatus(error.message, true)));
+      $('next-page').addEventListener('click', () => renderPage(currentPage + 1).catch(error => setStatus(error.message, true)));
+      window.addEventListener('resize', () => {
+        if (pdfDocument) renderPage(currentPage).catch(error => setStatus(error.message, true));
+      });
+      for (const id of [...fields.map(field => field.inputId), 'font-size', 'font-color']) {
+        $(id).addEventListener('input', updateMarkers);
+      }
+      for (const field of fields) {
+        for (const axis of ['x', 'y']) {
+          $(`coord-${field.key}-${axis}`).addEventListener('input', event => {
+            const position = positions[field.key];
+            if (!position || event.target.value.trim() === '') return;
+            const value = Number(event.target.value);
+            if (!Number.isFinite(value)) return;
+            position[axis] = value;
+            updateMarkers();
+          });
+        }
+      }
+
+      $('download-json').addEventListener('click', () => {
+        const coordinatePositions = Object.fromEntries(fields.map(field => {
+          const position = positions[field.key];
+          return [field.key, position ? {
+            page: position.page,
+            x: position.x,
+            y: position.y,
+          } : null];
+        }));
+        const config = {
+          formatVersion: 1,
+          sourcePdf: pdfInput.files[0]?.name ?? null,
+          values: {
+            branch: $('branch-text').value,
+            date: {
+              calendar: '民國',
+              year: $('date-year').value,
+              month: $('date-month').value,
+              day: $('date-day').value,
+            },
+          },
+          style: {
+            fontFamily: 'Microsoft YaHei Light',
+            fontSizePt: Number($('font-size').value) || 9,
+            color: $('font-color').value,
+          },
+          coordinateUnit: 'PDF points',
+          positions: coordinatePositions,
+          exportedAt: new Date().toISOString(),
+        };
+        const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json;charset=utf-8' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+        link.download = `Withdrawal_套印設定_${timestamp}.json`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+        setStatus(`JSON 設定已下載：${link.download}`);
+      });
+
+      $('download').addEventListener('click', async () => {
+        if (!pdfBytes || !fontBytes || !fields.every(field => positions[field.key])) return;
+        try {
+          $('download').disabled = true;
+          setStatus('正在套印 PDF…');
+          const { PDFDocument, rgb } = PDFLib;
+          const outputPdf = await PDFDocument.load(pdfBytes);
+          outputPdf.registerFontkit(fontkit);
+          validateFontCharacters(embeddedFontSource);
+          const embeddedFont = await outputPdf.embedFont(fontBytes, { subset: true });
+          const fontSize = Math.min(48, Math.max(6, Number($('font-size').value) || 12));
+          const hex = $('font-color').value;
+          const color = rgb(parseInt(hex.slice(1, 3), 16) / 255, parseInt(hex.slice(3, 5), 16) / 255, parseInt(hex.slice(5, 7), 16) / 255);
+          for (const field of fields) {
+            const position = positions[field.key];
+            const page = outputPdf.getPage(position.page - 1);
+            page.drawText($(field.inputId).value, {
+              x: position.x,
+              y: position.y,
+              size: fontSize,
+              font: embeddedFont,
+              color,
+            });
+          }
+          const result = await outputPdf.save();
+          const blob = new Blob([result], { type: 'application/pdf' });
+          const link = document.createElement('a');
+          link.href = URL.createObjectURL(blob);
+          const timestamp = new Date().toISOString().replace(/[-:TZ.]/g, '').slice(0, 14);
+          link.download = `Withdrawal_套印_${timestamp}.pdf`;
+          link.click();
+          setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+          setStatus(`完成，已下載 ${link.download}。請開啟這個最新檔案。`);
+        } catch (error) {
+          setStatus(`套印失敗：${error.message}`, true);
+        } finally {
+          refreshDownloadState();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
